@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ProseDown",
+  "version": "0.1.0",
+  "identifier": "app.prosedown",
+  "build": {
+    "beforeDevCommand": "npm --prefix ../web run dev",
+    "beforeBuildCommand": "npm --prefix ../web run build",
+    "devUrl": "http://localhost:8080",
+    "frontendDist": "../web/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "ProseDown",
+        "width": 960,
+        "height": 720,
+        "minWidth": 480,
+        "minHeight": 320,
+        "transparent": true,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true,
+        "visible": true,
+        "fullscreen": false
+      }
+    ],
+    "withGlobalTauri": false,
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app"],
+    "category": "DeveloperTool",
+    "publisher": "ProseDown",
+    "copyright": "Copyright \u00a9 2026 ProseDown contributors",
+    "shortDescription": "Fast markdown viewer for macOS 26",
+    "longDescription": "ProseDown renders markdown documents beautifully and near-instantly on macOS 26.",
+    "fileAssociations": [
+      {
+        "ext": ["md", "markdown", "mdown", "mkd"],
+        "name": "Markdown Document",
+        "description": "Markdown document",
+        "role": "Viewer",
+        "mimeType": "text/markdown"
+      }
+    ],
+    "macOS": {
+      "minimumSystemVersion": "26.0"
+    }
+  }
+}

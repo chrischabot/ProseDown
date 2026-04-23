@@ -1,0 +1,39 @@
+# Rust
+/target/
+/src-tauri/target/
+/src-tauri/gen/
+
+# Node
+/web/node_modules/
+/web/dist/
+/web/.vite/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated
+/src-tauri/icons/icon.icns
+/src-tauri/icons/icon.ico
+/src-tauri/icons/*.png
+!/src-tauri/icons/README.md
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS artefacts
+core.*
+
+# Agent workspace (session logs, research, test screenshots)
+.maestro/
+
+# Stray root package-lock — the real one lives in web/
+/package-lock.json

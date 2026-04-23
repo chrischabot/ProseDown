@@ -1,0 +1,290 @@
+/* Chrome layer sits above .markview-doc in z-order. All backgrounds use
+   color-mix() over transparency so the native NSWindow (or future Liquid
+   Glass material) shows through. */
+
+:root {
+  --mv-chrome-fg: #1c1c1e;
+  --mv-chrome-fg-muted: #6e6e73;
+  --mv-chrome-accent: #0a84ff;
+  --mv-chrome-border: rgba(0, 0, 0, 0.10);
+  --mv-chrome-bg: rgba(245, 245, 247, 0.72);
+  --mv-chrome-hover: rgba(0, 0, 0, 0.06);
+  --mv-chrome-active: rgba(10, 132, 255, 0.12);
+  --mv-sidebar-width: 240px;
+  --mv-titlebar-inset: 36px; /* macOS NSWindow titlebar height */
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --mv-chrome-fg: #ececec;
+    --mv-chrome-fg-muted: #a1a1a6;
+    --mv-chrome-accent: #0a84ff;
+    --mv-chrome-border: rgba(255, 255, 255, 0.08);
+    --mv-chrome-bg: rgba(30, 30, 32, 0.72);
+    --mv-chrome-hover: rgba(255, 255, 255, 0.06);
+    --mv-chrome-active: rgba(10, 132, 255, 0.22);
+  }
+}
+
+/* ---------- Layout adjustments ---------- */
+
+/* Invisible strip that lets the user grab-and-drag the window from the
+   titlebar inset area.  The window has `titleBarStyle: "Overlay"` and
+   `hiddenTitle: true`, so without this strip the whole top of the webview
+   is a dead zone for dragging.  Traffic lights are native NSWindow
+   buttons drawn above this region, so they remain clickable. */
+.mv-drag-region {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: var(--mv-titlebar-inset);
+  z-index: 8;
+  -webkit-app-region: drag;
+  app-region: drag;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Interactive chrome must opt out of the drag region so clicks reach the
+   buttons even when they overlap the titlebar band. */
+.mv-toolbar,
+.mv-findbar,
+.mv-sidebar {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+}
+
+body.mv-sidebar-open .markview-doc {
+  margin-left: calc(var(--mv-sidebar-width) + 1rem);
+}
+
+.markview-doc {
+  padding-top: calc(var(--mv-titlebar-inset) + 1.5rem);
+  transition: margin-left 220ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* ---------- Toolbar ---------- */
+
+.mv-toolbar {
+  position: fixed;
+  top: calc(var(--mv-titlebar-inset) + 0.5rem);
+  right: 0.75rem;
+  z-index: 10;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.15rem;
+  padding: 0.3rem 0.4rem;
+  color: var(--mv-chrome-fg);
+  background: var(--mv-chrome-bg);
+  border: 1px solid var(--mv-chrome-border);
+  border-radius: 0.75rem;
+  backdrop-filter: saturate(1.6) blur(22px);
+  -webkit-backdrop-filter: saturate(1.6) blur(22px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 8px 24px -12px rgba(0, 0, 0, 0.25);
+  font-family: inherit;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mv-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0.4rem;
+  border-radius: 0.45rem;
+  color: inherit;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 120ms ease, transform 60ms ease;
+}
+.mv-btn:hover { background: var(--mv-chrome-hover); }
+.mv-btn:active { transform: scale(0.94); background: var(--mv-chrome-active); }
+.mv-btn:focus-visible {
+  outline: 2px solid var(--mv-chrome-accent);
+  outline-offset: 2px;
+}
+.mv-btn svg { display: block; }
+
+.mv-divider {
+  display: inline-block;
+  width: 1px;
+  height: 18px;
+  margin: 0 0.2rem;
+  background: var(--mv-chrome-border);
+}
+
+/* ---------- Sidebar ---------- */
+
+.mv-sidebar {
+  position: fixed;
+  top: var(--mv-titlebar-inset);
+  left: 0;
+  bottom: 0;
+  width: var(--mv-sidebar-width);
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  color: var(--mv-chrome-fg);
+  background: var(--mv-chrome-bg);
+  border-right: 1px solid var(--mv-chrome-border);
+  backdrop-filter: saturate(1.4) blur(22px);
+  -webkit-backdrop-filter: saturate(1.4) blur(22px);
+  overflow: hidden;
+  transition: transform 240ms cubic-bezier(0.32, 0.72, 0, 1), opacity 160ms ease;
+}
+.mv-sidebar.is-hidden {
+  transform: translateX(-100%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.mv-sidebar-header {
+  padding: 0.6rem 0.9rem;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--mv-chrome-fg-muted);
+  border-bottom: 1px solid var(--mv-chrome-border);
+  user-select: none;
+}
+
+.mv-sidebar-nav {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0.35rem 0.25rem;
+  scrollbar-width: thin;
+}
+.mv-sidebar-nav::-webkit-scrollbar { width: 8px; }
+.mv-sidebar-nav::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, currentColor 15%, transparent);
+  border-radius: 8px;
+}
+
+.mv-toc {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+.mv-toc-item {
+  padding: 0;
+}
+.mv-toc-item a {
+  display: block;
+  padding: 0.3rem 0.55rem;
+  border-radius: 0.4rem;
+  color: inherit;
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  transition: background-color 90ms ease, color 90ms ease;
+}
+.mv-toc-item a:hover {
+  background: var(--mv-chrome-hover);
+  text-decoration: none;
+}
+.mv-toc-item.is-active > a {
+  background: var(--mv-chrome-active);
+  color: var(--mv-chrome-accent);
+  font-weight: 600;
+}
+
+.mv-toc-lv-1 > a { padding-left: 0.55rem; font-weight: 500; }
+.mv-toc-lv-2 > a { padding-left: 1.2rem; }
+.mv-toc-lv-3 > a { padding-left: 1.85rem; color: color-mix(in srgb, currentColor 80%, transparent); }
+.mv-toc-lv-4 > a { padding-left: 2.5rem; font-size: 0.82rem; color: color-mix(in srgb, currentColor 70%, transparent); }
+.mv-toc-lv-5 > a,
+.mv-toc-lv-6 > a { padding-left: 3rem; font-size: 0.8rem; color: color-mix(in srgb, currentColor 60%, transparent); }
+
+.mv-toc-empty {
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  color: var(--mv-chrome-fg-muted);
+}
+
+/* Narrow viewport: collapse sidebar. */
+@media (max-width: 720px) {
+  body.mv-sidebar-open .markview-doc { margin-left: 0; }
+  .mv-sidebar { box-shadow: 2px 0 20px -8px rgba(0, 0, 0, 0.3); }
+}
+
+/* ---------- Find bar ---------- */
+
+.mv-findbar {
+  position: fixed;
+  top: calc(var(--mv-titlebar-inset) + 0.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 11;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.3rem 0.4rem;
+  color: var(--mv-chrome-fg);
+  background: var(--mv-chrome-bg);
+  border: 1px solid var(--mv-chrome-border);
+  border-radius: 0.75rem;
+  backdrop-filter: saturate(1.6) blur(22px);
+  -webkit-backdrop-filter: saturate(1.6) blur(22px);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.3) inset,
+    0 8px 24px -12px rgba(0, 0, 0, 0.25);
+  font-family: inherit;
+}
+.mv-findbar[hidden] { display: none; }
+
+.mv-findbar-input {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.6rem;
+  min-width: 16rem;
+  outline: none;
+}
+.mv-findbar-input::placeholder { color: var(--mv-chrome-fg-muted); }
+.mv-findbar-input::-webkit-search-cancel-button { appearance: none; display: none; }
+
+.mv-findbar.is-nomatch .mv-findbar-input {
+  color: #ef4444;
+}
+.mv-findbar.is-nomatch {
+  border-color: rgba(239, 68, 68, 0.45);
+}
+
+.mv-findbar-btn {
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0.35rem;
+  border-radius: 0.4rem;
+  color: inherit;
+  cursor: default;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 120ms ease;
+}
+.mv-findbar-btn:hover { background: var(--mv-chrome-hover); }
+.mv-findbar-btn:focus-visible {
+  outline: 2px solid var(--mv-chrome-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Broken anchor links ---------- */
+
+.markview-doc a.mv-broken {
+  color: #ef4444;
+  text-decoration-style: dashed;
+  text-decoration-color: currentColor;
+}

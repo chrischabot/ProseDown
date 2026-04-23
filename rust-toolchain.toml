@@ -1,0 +1,7 @@
+[toolchain]
+# Pinned specific version for reproducible builds. Bump deliberately when
+# ready to adopt new compiler features or fixes; do not let it drift.
+channel = "1.94.1"
+components = ["rustfmt", "clippy"]
+targets = []
+profile = "default"
