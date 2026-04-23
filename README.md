@@ -27,6 +27,15 @@ Markdown is everywhere — READMEs, design docs, meeting notes, LLM output, issu
 | Light/dark mode following the system appearance | `web/src/styles/prose-macos.css` | ✅ |
 | Native Liquid Glass on macOS 26 (optional Swift shell) | `macos/Sources` | ✅ |
 
+## Install
+
+```sh
+brew tap chrischabot/prosedown
+brew install --cask prosedown
+```
+
+_(Tap and cask go live with the first signed release — see [`homebrew/prosedown.rb`](homebrew/prosedown.rb) for the template.)_
+
 ## Quickstart
 
 Prereqs: Rust 1.77+, Node 22+, macOS 26 to run, Xcode 26 Command Line Tools to build a signed `.app`.
@@ -115,6 +124,31 @@ make check          # cargo check on the Rust crate
 make test           # vitest — renderer unit tests
 make preview        # serve web/dist at http://localhost:8080 for browser-only testing
 make fmt            # cargo fmt
+```
+
+## Releasing (signed + notarized DMG)
+
+`release.sh` builds, signs, notarizes, staples, and DMG-wraps the app in one shot. It produces `dist/ProseDown.dmg`, ready to upload to a GitHub release.
+
+One-time machine setup:
+
+```sh
+# Stores your Apple app-specific password in the login keychain under
+# the profile name ProseDown-Notarization (or whatever you set
+# PROSEDOWN_NOTARY_PROFILE to).  Password is generated at
+# appleid.apple.com → Sign-In & Security → App-Specific Passwords.
+xcrun notarytool store-credentials "ProseDown-Notarization" \
+  --apple-id <your-apple-id@example.com> \
+  --team-id  28FC5D45XH \
+  --password <app-specific-password>
+```
+
+Then for each release:
+
+```sh
+# Bump src-tauri/tauri.conf.json → "version" first, commit, tag.
+./release.sh
+# Script prints SHA256 + the gh release command to run.
 ```
 
 ## Status
