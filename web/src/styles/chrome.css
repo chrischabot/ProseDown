@@ -39,7 +39,8 @@
   left: 0;
   right: 0;
   height: var(--mv-titlebar-inset);
-  z-index: 8;
+  z-index: 1000;
+  pointer-events: auto;
   -webkit-app-region: drag;
   app-region: drag;
   user-select: none;
@@ -144,15 +145,42 @@ body.mv-sidebar-open .markview-doc {
 }
 
 .mv-sidebar-header {
-  padding: 0.6rem 0.9rem;
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--mv-chrome-fg-muted);
+  padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--mv-chrome-border);
   user-select: none;
 }
+
+/* Segmented control — Outline / Files toggle. */
+.mv-segctl {
+  display: inline-flex;
+  width: 100%;
+  background: color-mix(in srgb, currentColor 6%, transparent);
+  border-radius: 0.5rem;
+  padding: 0.18rem;
+  gap: 0.18rem;
+}
+.mv-segbtn {
+  flex: 1;
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--mv-chrome-fg-muted);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 500;
+  padding: 0.32rem 0.4rem;
+  border-radius: 0.38rem;
+  cursor: default;
+  transition: background-color 120ms ease, color 120ms ease, box-shadow 120ms ease;
+}
+.mv-segbtn:hover { color: var(--mv-chrome-fg); }
+.mv-segbtn.is-active {
+  background: color-mix(in srgb, var(--mv-chrome-fg) 9%, transparent);
+  color: var(--mv-chrome-fg);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.04), 0 0.5px 0 rgba(255,255,255,0.4) inset;
+}
+.mv-segbtn[hidden] { display: none; }
+.mv-segbtn:focus-visible { outline: 2px solid var(--mv-chrome-accent); outline-offset: 2px; }
 
 .mv-sidebar-nav {
   flex: 1;
@@ -203,6 +231,55 @@ body.mv-sidebar-open .markview-doc {
 .mv-toc-lv-4 > a { padding-left: 2.5rem; font-size: 0.82rem; color: color-mix(in srgb, currentColor 70%, transparent); }
 .mv-toc-lv-5 > a,
 .mv-toc-lv-6 > a { padding-left: 3rem; font-size: 0.8rem; color: color-mix(in srgb, currentColor 60%, transparent); }
+
+/* ---- File list panel ---- */
+.mv-files {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.86rem;
+}
+.mv-file-item { padding: 0; }
+.mv-file-btn {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.45rem 0.6rem;
+  border-radius: 0.45rem;
+  cursor: default;
+  transition: background-color 90ms ease, color 90ms ease;
+}
+.mv-file-btn:hover { background: var(--mv-chrome-hover); }
+.mv-file-item.is-active > .mv-file-btn {
+  background: var(--mv-chrome-active);
+  color: var(--mv-chrome-accent);
+}
+.mv-file-name {
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mv-file-subpath {
+  font-size: 0.72rem;
+  color: color-mix(in srgb, currentColor 55%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-feature-settings: "tnum";
+}
+.mv-files-empty {
+  padding: 0.6rem 0.9rem;
+  font-size: 0.8rem;
+  color: var(--mv-chrome-fg-muted);
+}
 
 .mv-toc-empty {
   padding: 0.6rem 0.9rem;

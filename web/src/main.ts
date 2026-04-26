@@ -1,11 +1,13 @@
 import DOMPurify from 'dompurify';
-import { loadInitialDocument, onReload, pushReady, pushToc, type DocumentPayload } from './bridge.js';
+import { loadInitialDocument, onReload, pushReady, pushToc, setActiveDocument, type DocumentPayload } from './bridge.js';
 import type { WorkerRequest, WorkerResponse } from './worker.js';
 import type { ParseResult } from './pipeline/markdown.js';
 import { mountToolbar } from './ui/toolbar.js';
 import {
   mountSidebar,
   setToc,
+  setDocuments,
+  setOnFileSelect,
   toggleSidebar as toggleSidebarDom,
   setVisible as setSidebarVisible,
   markOpenedByKeyboard,
@@ -138,6 +140,7 @@ async function render(payload: DocumentPayload, preserveScroll = false): Promise
 
   setToc(result.toc);
   void pushToc(result.toc);
+  setDocuments(payload.documents ?? [], payload.selected_index ?? null);
 
   const metrics = { height: docEl.scrollHeight, width: docEl.scrollWidth };
   void pushReady(metrics);
@@ -261,6 +264,12 @@ function wireKeyboard(): void {
 function wireChrome(): void {
   mountSidebar();
   applySidebarForViewport();
+
+  setOnFileSelect(index => {
+    void setActiveDocument(index).then(payload => {
+      if (payload) void render(payload);
+    });
+  });
 
   mountToolbar({
     toggleSidebar: () => userToggleSidebar(false),

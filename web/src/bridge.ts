@@ -1,8 +1,15 @@
 import type { TocEntry } from './pipeline/markdown.js';
 
+export interface DocumentSummary {
+  path: string;
+  name: string;
+}
+
 export interface DocumentPayload {
   path: string | null;
   source: string;
+  documents: DocumentSummary[];
+  selected_index: number | null;
 }
 
 type ReloadHandler = (payload: DocumentPayload) => void;
@@ -69,12 +76,36 @@ export async function loadInitialDocument(): Promise<DocumentPayload> {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const source = await res.text();
-    return { path: fileParam, source };
+    return { path: fileParam, source, documents: [], selected_index: null };
   } catch (err) {
     return {
       path: null,
-      source: `# Markview\n\n_Could not load \`${url}\`: ${err instanceof Error ? err.message : String(err)}._\n\nThis is a development fallback. In production, the native shell supplies the document.`,
+      source: `# ProseDown\n\n_Could not load \`${url}\`: ${err instanceof Error ? err.message : String(err)}._\n\nThis is a development fallback. In production, the native shell supplies the document.`,
+      documents: [],
+      selected_index: null,
     };
+  }
+}
+
+export async function setActiveDocument(index: number): Promise<DocumentPayload | null> {
+  const tauri = await loadTauriApi();
+  if (!tauri) return null;
+  try {
+    return await tauri.invoke<DocumentPayload>('set_active_document', { index });
+  } catch (err) {
+    console.warn('[markview] set_active_document failed', err);
+    return null;
+  }
+}
+
+export async function closeDocument(index: number): Promise<DocumentPayload | null> {
+  const tauri = await loadTauriApi();
+  if (!tauri) return null;
+  try {
+    return await tauri.invoke<DocumentPayload>('close_document', { index });
+  } catch (err) {
+    console.warn('[markview] close_document failed', err);
+    return null;
   }
 }
 

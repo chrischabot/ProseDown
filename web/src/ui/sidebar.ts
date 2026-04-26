@@ -1,85 +1,140 @@
 import type { TocEntry } from '../pipeline/markdown.js';
+import type { DocumentSummary } from '../bridge.js';
+
+type Tab = 'outline' | 'files';
 
 let sidebarEl: HTMLElement | null = null;
-let listEl: HTMLElement | null = null;
+let outlinePanel: HTMLElement | null = null;
+let filesPanel: HTMLElement | null = null;
+let listEl: HTMLElement | null = null; // outline (ToC) list
+let filesListEl: HTMLElement | null = null; // file list
+let outlineTabBtn: HTMLButtonElement | null = null;
+let filesTabBtn: HTMLButtonElement | null = null;
 let activeObserver: IntersectionObserver | null = null;
 let visible = true;
+let tab: Tab = 'outline';
+
+/** Caller-supplied — invoked when the user clicks a file row. */
+let onFileSelect: ((index: number) => void) | null = null;
+
+export function setOnFileSelect(handler: (index: number) => void): void {
+  onFileSelect = handler;
+}
 
 export function mountSidebar(): HTMLElement {
   if (sidebarEl) return sidebarEl;
   const aside = document.createElement('aside');
   aside.className = 'mv-sidebar';
-  aside.setAttribute('aria-label', 'Table of contents');
+  aside.setAttribute('aria-label', 'Sidebar');
 
+  // Header — segmented control to switch tab.
   const header = document.createElement('div');
   header.className = 'mv-sidebar-header';
-  header.textContent = 'Contents';
 
+  const seg = document.createElement('div');
+  seg.className = 'mv-segctl';
+  seg.setAttribute('role', 'tablist');
+
+  outlineTabBtn = makeTabButton('Outline', 'outline');
+  filesTabBtn = makeTabButton('Files', 'files');
+  seg.append(outlineTabBtn, filesTabBtn);
+  header.appendChild(seg);
+
+  // Body — two panels, only the active one visible.
   const nav = document.createElement('nav');
   nav.className = 'mv-sidebar-nav';
 
+  outlinePanel = document.createElement('div');
+  outlinePanel.className = 'mv-panel mv-panel-outline';
+  outlinePanel.setAttribute('role', 'tabpanel');
   const list = document.createElement('ol');
   list.className = 'mv-toc';
   list.setAttribute('role', 'listbox');
   list.setAttribute('tabindex', '-1');
-  nav.appendChild(list);
+  list.addEventListener('keydown', onListKey);
+  outlinePanel.appendChild(list);
+  listEl = list;
+
+  filesPanel = document.createElement('div');
+  filesPanel.className = 'mv-panel mv-panel-files';
+  filesPanel.hidden = true;
+  filesPanel.setAttribute('role', 'tabpanel');
+  const filesList = document.createElement('ul');
+  filesList.className = 'mv-files';
+  filesList.setAttribute('role', 'listbox');
+  filesList.setAttribute('tabindex', '-1');
+  filesList.addEventListener('keydown', onFilesKey);
+  filesPanel.appendChild(filesList);
+  filesListEl = filesList;
+
+  nav.append(outlinePanel, filesPanel);
 
   aside.append(header, nav);
   document.body.appendChild(aside);
 
-  // Delegated keyboard navigation.
-  list.addEventListener('keydown', onListKey);
-
   sidebarEl = aside;
-  listEl = list;
   setVisible(visible);
   return aside;
 }
 
-function getFocusableLinks(): HTMLAnchorElement[] {
+function makeTabButton(label: string, t: Tab): HTMLButtonElement {
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'mv-segbtn';
+  btn.dataset.tab = t;
+  btn.textContent = label;
+  btn.setAttribute('role', 'tab');
+  btn.addEventListener('click', () => setTab(t));
+  return btn;
+}
+
+export function setTab(next: Tab): void {
+  tab = next;
+  if (!sidebarEl) mountSidebar();
+  outlinePanel!.hidden = tab !== 'outline';
+  filesPanel!.hidden = tab !== 'files';
+  outlineTabBtn?.classList.toggle('is-active', tab === 'outline');
+  filesTabBtn?.classList.toggle('is-active', tab === 'files');
+  outlineTabBtn?.setAttribute('aria-selected', String(tab === 'outline'));
+  filesTabBtn?.setAttribute('aria-selected', String(tab === 'files'));
+}
+
+function getOutlineLinks(): HTMLAnchorElement[] {
   if (!listEl) return [];
   return Array.from(listEl.querySelectorAll<HTMLAnchorElement>('.mv-toc-item > a'));
 }
 
-function onListKey(ev: KeyboardEvent): void {
-  const links = getFocusableLinks();
-  if (links.length === 0) return;
+function getFileButtons(): HTMLButtonElement[] {
+  if (!filesListEl) return [];
+  return Array.from(filesListEl.querySelectorAll<HTMLButtonElement>('.mv-file-item > button'));
+}
 
+function rovingFocusKey(items: HTMLElement[], ev: KeyboardEvent): void {
+  if (items.length === 0) return;
   const current = document.activeElement as HTMLElement | null;
-  const currentIdx = current instanceof HTMLAnchorElement ? links.indexOf(current) : -1;
-
+  const currentIdx = current ? items.indexOf(current) : -1;
   const focusAt = (i: number) => {
-    const clamped = Math.max(0, Math.min(links.length - 1, i));
-    links[clamped].focus();
-    // Update roving-tabindex so tab lands on the focused item next time.
-    links.forEach((l, idx) => l.setAttribute('tabindex', idx === clamped ? '0' : '-1'));
+    const clamped = Math.max(0, Math.min(items.length - 1, i));
+    items[clamped].focus();
+    items.forEach((el, idx) => el.setAttribute('tabindex', idx === clamped ? '0' : '-1'));
   };
-
   switch (ev.key) {
-    case 'ArrowDown':
-      ev.preventDefault();
-      focusAt(currentIdx === -1 ? 0 : currentIdx + 1);
-      break;
-    case 'ArrowUp':
-      ev.preventDefault();
-      focusAt(currentIdx === -1 ? 0 : currentIdx - 1);
-      break;
-    case 'Home':
-      ev.preventDefault();
-      focusAt(0);
-      break;
-    case 'End':
-      ev.preventDefault();
-      focusAt(links.length - 1);
-      break;
+    case 'ArrowDown': ev.preventDefault(); focusAt(currentIdx === -1 ? 0 : currentIdx + 1); break;
+    case 'ArrowUp':   ev.preventDefault(); focusAt(currentIdx === -1 ? 0 : currentIdx - 1); break;
+    case 'Home':      ev.preventDefault(); focusAt(0); break;
+    case 'End':       ev.preventDefault(); focusAt(items.length - 1); break;
     case 'Enter':
     case ' ':
-      if (current instanceof HTMLAnchorElement) {
-        ev.preventDefault();
-        current.click();
-      }
+      if (current) { ev.preventDefault(); current.click(); }
       break;
   }
+}
+
+function onListKey(ev: KeyboardEvent): void {
+  rovingFocusKey(getOutlineLinks(), ev);
+}
+function onFilesKey(ev: KeyboardEvent): void {
+  rovingFocusKey(getFileButtons(), ev);
 }
 
 export function setToc(entries: TocEntry[]): void {
@@ -107,7 +162,6 @@ export function setToc(entries: TocEntry[]): void {
     const a = document.createElement('a');
     a.href = `#${encodeURIComponent(e.id)}`;
     a.textContent = e.text;
-    // Roving tabindex — only the first item is tab-reachable initially.
     a.tabIndex = idx === 0 ? 0 : -1;
     a.addEventListener('click', ev => {
       ev.preventDefault();
@@ -124,6 +178,73 @@ export function setToc(entries: TocEntry[]): void {
   });
 
   watchActive(entries);
+}
+
+export function setDocuments(docs: DocumentSummary[], selectedIndex: number | null): void {
+  if (!filesListEl) mountSidebar();
+  if (!filesListEl) return;
+
+  // Auto-flip to Files tab the first time multiple docs appear so the user
+  // immediately sees what's loaded.  (One-shot — afterwards we respect the
+  // user's tab choice.)
+  if (docs.length >= 2 && !sidebarEl?.dataset.filesAutoSelected) {
+    sidebarEl!.dataset.filesAutoSelected = '1';
+    setTab('files');
+  }
+
+  // Hide the Files tab button entirely when there's nothing to navigate.
+  if (filesTabBtn) filesTabBtn.hidden = docs.length === 0;
+
+  filesListEl.innerHTML = '';
+  if (docs.length === 0) {
+    const empty = document.createElement('li');
+    empty.className = 'mv-files-empty';
+    empty.textContent = 'No documents open';
+    filesListEl.appendChild(empty);
+    return;
+  }
+
+  docs.forEach((doc, idx) => {
+    const li = document.createElement('li');
+    li.className = 'mv-file-item';
+    if (idx === selectedIndex) li.classList.add('is-active');
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'mv-file-btn';
+    btn.tabIndex = idx === 0 ? 0 : -1;
+    btn.title = doc.path;
+    btn.setAttribute('aria-selected', String(idx === selectedIndex));
+
+    const name = document.createElement('span');
+    name.className = 'mv-file-name';
+    name.textContent = doc.name;
+    btn.appendChild(name);
+
+    if (doc.path !== doc.name) {
+      const sub = document.createElement('span');
+      sub.className = 'mv-file-subpath';
+      sub.textContent = parentDisplay(doc.path);
+      btn.appendChild(sub);
+    }
+
+    btn.addEventListener('click', () => {
+      if (onFileSelect) onFileSelect(idx);
+    });
+
+    li.appendChild(btn);
+    filesListEl!.appendChild(li);
+  });
+}
+
+function parentDisplay(fullPath: string): string {
+  const parts = fullPath.split('/');
+  parts.pop();
+  if (parts.length === 0) return '';
+  // Show last 2 segments of the parent path so users can disambiguate
+  // multiple files with the same name.
+  const tail = parts.slice(-2).filter(Boolean).join('/');
+  return tail ? `…/${tail}` : '/';
 }
 
 function watchActive(entries: TocEntry[]): void {
@@ -172,11 +293,8 @@ export function setVisible(v: boolean): void {
   document.body.classList.toggle('mv-sidebar-open', visible);
   sidebarEl.setAttribute('aria-hidden', visible ? 'false' : 'true');
   if (visible) {
-    // If opened with no focus inside, move focus to the active entry (or first)
-    // so keyboard navigation can start immediately.
     const active = listEl?.querySelector<HTMLAnchorElement>('.mv-toc-item.is-active > a');
     const target = active ?? listEl?.querySelector<HTMLAnchorElement>('.mv-toc-item > a');
-    // Only steal focus when sidebar itself is activated via keyboard (tracked below).
     if (target && sidebarEl.dataset.openedByKeyboard === '1') {
       queueMicrotask(() => target.focus());
       delete sidebarEl.dataset.openedByKeyboard;
