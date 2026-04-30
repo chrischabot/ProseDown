@@ -14,6 +14,12 @@ export default defineConfig({
     cssMinify: true,
     minify: 'esbuild',
     assetsInlineLimit: 4096,
+    // The largest chunks are Shiki language grammars (cpp ~700kB, emacs-lisp
+    // ~800kB), Shiki's WASM regex engine (~620kB), and Mermaid's cytoscape
+    // dep (~440kB) — all lazy-loaded only when a document needs them, so
+    // they never affect cold-start.  Raise the warning ceiling above those
+    // so it stays useful as a regression signal for the eager bundle.
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
       output: {
         // Keep chunk names stable so lazy imports are cacheable.

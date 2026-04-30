@@ -8,13 +8,14 @@ import {
   setToc,
   setDocuments,
   setOnFileSelect,
+  setTab,
   toggleSidebar as toggleSidebarDom,
   setVisible as setSidebarVisible,
   markOpenedByKeyboard,
 } from './ui/sidebar.js';
 import { showFindBar, hideFindBar, isFindBarOpen, repeatFind } from './ui/findbar.js';
 import { flagBrokenAnchors } from './ui/linkcheck.js';
-import { restoreScroll } from './ui/scrollmemory.js';
+import { restoreScroll, resetScroll } from './ui/scrollmemory.js';
 
 const docEl = document.getElementById('doc') as HTMLElement;
 const loadingEl = document.getElementById('markview-loading');
@@ -140,7 +141,25 @@ async function render(payload: DocumentPayload, preserveScroll = false): Promise
 
   setToc(result.toc);
   void pushToc(result.toc);
-  setDocuments(payload.documents ?? [], payload.selected_index ?? null);
+  const docs = payload.documents ?? [];
+  setDocuments(docs, payload.selected_index ?? null);
+  activeDocPath = payload.path;
+  activeDocIndex = payload.selected_index ?? null;
+
+  // When the session contains multiple documents, surface the file list so
+  // the user always knows what's loaded and can switch.  Forced every render
+  // — closing the sidebar will re-open on the next document switch, which
+  // matches the requested "always open" semantics.
+  if (docs.length >= 2) {
+    sidebarUserPref = true;
+    setSidebarVisible(true);
+    setTab('files');
+  } else if (lastDocsCount >= 2 && docs.length < 2) {
+    // Dropped back to a single doc: nothing to navigate, switch back to
+    // the outline so the now-pointless Files tab isn't lingering selected.
+    setTab('outline');
+  }
+  lastDocsCount = docs.length;
 
   const metrics = { height: docEl.scrollHeight, width: docEl.scrollWidth };
   void pushReady(metrics);
@@ -218,6 +237,9 @@ function currentZoom(): number {
 
 const NARROW_PX = 720;
 let sidebarUserPref = false;
+let activeDocPath: string | null = null;
+let activeDocIndex: number | null = null;
+let lastDocsCount = 0;
 
 function applySidebarForViewport(): void {
   const narrow = window.innerWidth < NARROW_PX;
@@ -234,6 +256,60 @@ function userToggleSidebar(fromKeyboard: boolean): void {
   sidebarUserPref = !sidebarUserPref;
   if (sidebarUserPref && fromKeyboard) markOpenedByKeyboard();
   setSidebarVisible(sidebarUserPref);
+}
+
+// macOS HIG: the titlebar strip handles single-click drag and double-click
+// zoom (maximize/restore).  Tauri 2 auto-injects a `data-tauri-drag-region`
+// listener on mousedown, but it silently no-ops on macOS with `transparent:
+// true` + `titleBarStyle: "Overlay"` — so we wire an explicit handler that
+// calls Tauri's `startDragging()` directly.  The window API is preloaded at
+// boot so the *first* drag works (a dynamic import inside mousedown resolves
+// after the click is already over).
+interface TauriWindowApi {
+  startDragging(): Promise<void>;
+  isMaximized(): Promise<boolean>;
+  maximize(): Promise<void>;
+  unmaximize(): Promise<void>;
+}
+let tauriWindow: TauriWindowApi | null = null;
+
+function preloadTauriWindow(): void {
+  if (!('__TAURI_INTERNALS__' in window)) return;
+  // Use `getCurrentWebviewWindow` (not `getCurrentWindow`) — multiple reports
+  // in tauri-apps/tauri#4316 confirm this is the path that actually
+  // dispatches startDragging() correctly on macOS Overlay titlebars.
+  void import('@tauri-apps/api/webviewWindow')
+    .then(m => {
+      tauriWindow = m.getCurrentWebviewWindow();
+      console.info('[markview] titlebar drag wired');
+    })
+    .catch(err => console.warn('[markview] tauri window api preload failed', err));
+}
+
+function wireDragRegion(): void {
+  const region = document.querySelector<HTMLElement>('.mv-drag-region');
+  if (!region) return;
+  region.addEventListener('mousedown', ev => {
+    if (ev.button !== 0) return;
+    if (ev.detail >= 2) return; // dblclick handler will fire next
+    tauriWindow?.startDragging().catch(err =>
+      console.warn('[markview] startDragging failed', err),
+    );
+  });
+  region.addEventListener('dblclick', ev => {
+    if (ev.button !== 0) return;
+    const win = tauriWindow;
+    if (!win) return;
+    void (async () => {
+      try {
+        const maximized = await win.isMaximized();
+        if (maximized) await win.unmaximize();
+        else await win.maximize();
+      } catch (err) {
+        console.warn('[markview] titlebar dblclick failed', err);
+      }
+    })();
+  });
 }
 
 function wireKeyboard(): void {
@@ -266,6 +342,12 @@ function wireChrome(): void {
   applySidebarForViewport();
 
   setOnFileSelect(index => {
+    // Re-clicking the already-active file is the user's "scroll to top"
+    // gesture — skip the round-trip to Rust and just reset.
+    if (index === activeDocIndex) {
+      resetScroll(activeDocPath);
+      return;
+    }
     void setActiveDocument(index).then(payload => {
       if (payload) void render(payload);
     });
@@ -290,7 +372,9 @@ function wireChrome(): void {
 }
 
 async function boot(): Promise<void> {
+  preloadTauriWindow();
   wireChrome();
+  wireDragRegion();
   wireKeyboard();
   void onReload(p => { void render(p, true); });
   try {

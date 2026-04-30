@@ -28,11 +28,12 @@
 
 /* ---------- Layout adjustments ---------- */
 
-/* Invisible strip that lets the user grab-and-drag the window from the
-   titlebar inset area.  The window has `titleBarStyle: "Overlay"` and
-   `hiddenTitle: true`, so without this strip the whole top of the webview
-   is a dead zone for dragging.  Traffic lights are native NSWindow
-   buttons drawn above this region, so they remain clickable. */
+/* Visible titlebar strip.  Per macOS HIG, windows with `titleBarStyle:
+   "Overlay"` need a clearly demarcated drag zone — a totally invisible
+   strip leaves users with no affordance to grab.  This bar matches the
+   chrome glass material so it reads as the window's titlebar.  Traffic
+   lights are native NSWindow buttons drawn above this region, so they
+   remain clickable. */
 .mv-drag-region {
   position: fixed;
   top: 0;
@@ -45,6 +46,14 @@
   app-region: drag;
   user-select: none;
   -webkit-user-select: none;
+  background: #ffffff;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.10);
+}
+@media (prefers-color-scheme: dark) {
+  .mv-drag-region {
+    background: #1c1c1e;
+    border-bottom-color: rgba(255, 255, 255, 0.08);
+  }
 }
 
 /* Interactive chrome must opt out of the drag region so clicks reach the
@@ -56,14 +65,19 @@
   app-region: no-drag;
 }
 
-body.mv-sidebar-open .markview-doc {
-  margin-left: calc(var(--mv-sidebar-width) + 1rem);
+/* When the sidebar is open we shift the body's content area right by the
+   sidebar width.  The doc itself keeps its `mx-auto` centering, so its
+   max-width column is centred within the *remaining* space — not crammed
+   up against the sidebar. */
+body.mv-sidebar-open {
+  padding-left: var(--mv-sidebar-width);
 }
 
 .markview-doc {
   padding-top: calc(var(--mv-titlebar-inset) + 1.5rem);
-  transition: margin-left 220ms cubic-bezier(0.32, 0.72, 0, 1);
 }
+
+body { transition: padding-left 220ms cubic-bezier(0.32, 0.72, 0, 1); }
 
 /* ---------- Toolbar ---------- */
 
@@ -289,7 +303,7 @@ body.mv-sidebar-open .markview-doc {
 
 /* Narrow viewport: collapse sidebar. */
 @media (max-width: 720px) {
-  body.mv-sidebar-open .markview-doc { margin-left: 0; }
+  body.mv-sidebar-open { padding-left: 0; }
   .mv-sidebar { box-shadow: 2px 0 20px -8px rgba(0, 0, 0, 0.3); }
 }
 

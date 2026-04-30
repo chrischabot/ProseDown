@@ -184,14 +184,6 @@ export function setDocuments(docs: DocumentSummary[], selectedIndex: number | nu
   if (!filesListEl) mountSidebar();
   if (!filesListEl) return;
 
-  // Auto-flip to Files tab the first time multiple docs appear so the user
-  // immediately sees what's loaded.  (One-shot — afterwards we respect the
-  // user's tab choice.)
-  if (docs.length >= 2 && !sidebarEl?.dataset.filesAutoSelected) {
-    sidebarEl!.dataset.filesAutoSelected = '1';
-    setTab('files');
-  }
-
   // Hide the Files tab button entirely when there's nothing to navigate.
   if (filesTabBtn) filesTabBtn.hidden = docs.length === 0;
 

@@ -79,18 +79,34 @@ function detachScroll(): void {
 }
 
 /// Restore any saved scroll for this path. Call after render when the DOM is
-/// populated. No-op for null paths (browser fallback / welcome doc).
+/// populated. Falls back to top-of-doc when there's no saved entry — without
+/// this, switching to a freshly-opened file would inherit the previous file's
+/// scroll position because the window's own scrollY is preserved across
+/// innerHTML swaps.
 export function restoreScroll(path: string | null): void {
   detachScroll();
   currentPath = path;
-  if (!path) return;
-  const map = readAll();
-  const saved = map[path];
-  if (saved && Number.isFinite(saved.y)) {
-    // Defer one frame so layout (images, fonts, mermaid) has a chance to settle.
-    requestAnimationFrame(() => {
-      window.scrollTo({ top: saved.y });
-    });
-  }
+  const map = path ? readAll() : null;
+  const saved = path && map ? map[path] : undefined;
+  const targetY = saved && Number.isFinite(saved.y) ? saved.y : 0;
+  // Defer one frame so layout (images, fonts, mermaid) has a chance to settle.
+  requestAnimationFrame(() => {
+    window.scrollTo({ top: targetY });
+  });
   attachScroll();
+}
+
+/// Forget any stored scroll position for this path and snap to the top.
+/// Used when the user clicks the already-active file in the sidebar — the
+/// gesture means "take me back to the top".
+export function resetScroll(path: string | null): void {
+  if (path) {
+    const map = readAll();
+    if (path in map) {
+      delete map[path];
+      writeAll(map);
+    }
+  }
+  pendingY = null;
+  window.scrollTo({ top: 0 });
 }
