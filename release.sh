@@ -29,7 +29,8 @@ NOTARY_PROFILE="${PROSEDOWN_NOTARY_PROFILE:-ProseDown-Notarization}"
 
 PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DIST_DIR="${PROJECT_DIR}/dist"
-BUNDLE_ROOT="${PROJECT_DIR}/src-tauri/target/release/bundle"
+# Cargo workspace puts the target dir at the repo root, not under src-tauri/.
+BUNDLE_ROOT="${PROJECT_DIR}/target/release/bundle"
 APP_BUNDLE="${BUNDLE_ROOT}/macos/${APP_NAME}.app"
 DMG_OUT="${DIST_DIR}/${APP_NAME}.dmg"
 
